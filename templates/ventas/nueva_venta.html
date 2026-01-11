@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+
+{% block contenido %}
+<div class="card border-primary">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h4 class="mb-0">Nueva Venta</h4>
+        <a href="{% url 'home' %}" class="btn btn-sm btn-light">Volver</a>
+    </div>
+    
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <label class="form-label">Cliente</label>
+                    {{ form_venta.cliente }}
+                </div>
+            </div>
+
+            <hr>
+
+            <h5 class="mb-3">Productos</h5>
+            
+            <table class="table table-bordered" id="tabla-productos">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th width="150">Cantidad</th>
+                        <th width="50">Eliminar</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{ formset_detalle.management_form }}
+
+                    {% for form in formset_detalle %}
+                        <tr class="producto-row">
+                            <td>{{ form.producto }}</td>
+                            <td>{{ form.cantidad }}</td>
+                            <td class="text-center">
+                                {% if form.instance.pk %}
+                                    {{ form.DELETE }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <button type="button" class="btn btn-secondary btn-sm mb-3" id="add-row">
+                <i class="bi bi-plus-circle"></i> Agregar otro producto
+            </button>
+
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-success btn-lg">Facturar y Guardar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.getElementById('add-row').addEventListener('click', function() {
+        var table = document.getElementById('tabla-productos').getElementsByTagName('tbody')[0];
+        var totalForms = document.getElementById('id_detalles-TOTAL_FORMS'); // Input oculto de Django
+        var currentFormCount = parseInt(totalForms.value);
+        
+        // Clonamos la primera fila (que suele estar oculta o ser la base)
+        var newRow = table.rows[0].cloneNode(true);
+        
+        // Limpiamos los valores de los inputs clonados
+        var inputs = newRow.getElementsByTagName('input');
+        var selects = newRow.getElementsByTagName('select');
+        
+        // Actualizamos los IDs y Nombres (Django necesita formato detalles-0-..., detalles-1-...)
+        for (var i = 0; i < inputs.length; i++) {
+            inputs[i].name = inputs[i].name.replace('-0-', '-' + currentFormCount + '-');
+            inputs[i].id = inputs[i].id.replace('-0-', '-' + currentFormCount + '-');
+            inputs[i].value = ''; // Limpiar valor
+        }
+        for (var i = 0; i < selects.length; i++) {
+            selects[i].name = selects[i].name.replace('-0-', '-' + currentFormCount + '-');
+            selects[i].id = selects[i].id.replace('-0-', '-' + currentFormCount + '-');
+        }
+
+        // Agregamos la fila y aumentamos el contador
+        table.appendChild(newRow);
+        totalForms.value = currentFormCount + 1;
+    });
+</script>
+{% endblock %}

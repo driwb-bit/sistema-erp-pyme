@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block contenido %}
+<div class="card border-success">
+    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+        <h4 class="mb-0">Control de Stock</h4>
+        <a href="{% url 'home' %}" class="btn btn-sm btn-light">Volver</a>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped">
+                <thead class="table-dark">
+                    <tr>
+                        <th>Código</th>
+                        <th>Nombre</th>
+                        <th>Categoría</th>
+                        <th>Precio Venta</th>
+                        <th>Stock Actual</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in productos %}
+                    <tr>
+                        <td>{{ p.codigo }}</td>
+                        <td>{{ p.nombre }}</td>
+                        <td>{{ p.categoria }}</td>
+                        <td>${{ p.precio }}</td>
+                        <td>
+                            {% if p.stock_actual <= p.stock_minimo %}
+                                <span class="badge bg-danger">{{ p.stock_actual }} (Bajo)</span>
+                            {% else %}
+                                <span class="badge bg-success">{{ p.stock_actual }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center">No hay productos cargados.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

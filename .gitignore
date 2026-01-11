@@ -1,0 +1,15 @@
+# Ignorar entorno virtual (muy pesado)
+entorno/
+venv/
+env/
+.env
+# Ignorar archivos compilados de Python
+__pycache__/
+*.pyc
+
+# Ignorar base de datos (Opcional: Ver nota abajo)
+db.sqlite3
+
+# Ignorar configuraciones de tu editor de texto
+.vscode/
+.idea/

@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block contenido %}
+<div class="row">
+    <div class="col-md-12 text-center mb-5">
+        <h1 class="display-4">Bienvenido, {{ user.username }}</h1>
+        <p class="lead">Panel de Control General</p>
+    </div>
+</div>
+
+<div class="row g-4">
+    <div class="col-md-4">
+        <div class="card h-100 border-primary">
+            <div class="card-body text-center">
+                <h1 class="text-primary"><i class="bi bi-cart-plus"></i></h1>
+                <h5 class="card-title">Punto de Venta</h5>
+                <p class="card-text">Registrar una nueva venta y facturar.</p>
+                <a href="{% url 'crear_venta' %}" class="btn btn-primary w-100">Nueva Venta</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card h-100 border-success">
+            <div class="card-body text-center">
+                <h1 class="text-success"><i class="bi bi-boxes"></i></h1>
+                <h5 class="card-title">Inventario</h5>
+                <p class="card-text">Ver stock actual y productos.</p>
+                <a href="{% url 'lista_productos' %}" class="btn btn-primary w-100">Ver Stock</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-4">
+        <div class="card h-100 border-warning">
+            <div class="card-body text-center">
+                <h1 class="text-warning"><i class="bi bi-cash-coin"></i></h1>
+                <h5 class="card-title">Caja</h5>
+                <p class="card-text">Realizar cierre de caja o ver movimientos.</p>
+                <a href="{% url 'gestionar_caja' %}" class="btn btn-primary w-100">Gestionar Caja</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
