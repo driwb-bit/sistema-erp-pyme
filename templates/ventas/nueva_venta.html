@@ -8,9 +8,19 @@
     </div>
     
     <div class="card-body">
-        <form method="post">
+        <div class="card mb-3 bg-light">
+            <div class="card-body">
+                <label><strong>🔍 ESCANEAR CÓDIGO DE BARRAS:</strong></label>
+                <input type="text" id="scanner_input" class="form-control" placeholder="Escaneá el producto aquí..." autofocus autocomplete="off">
+                <small class="text-muted">Presiona Enter tras escanear.</small>
+            </div>
+        </div>
+
+        <form method="post" id="form-venta">
             {% csrf_token %}
             
+            <input type="hidden" name="metodo_pago_seleccionado" id="input-hidden-pago" value="EFECTIVO">
+
             <div class="row mb-4">
                 <div class="col-md-6">
                     <label class="form-label">Cliente</label>
@@ -22,69 +32,369 @@
 
             <h5 class="mb-3">Productos</h5>
             
-            <table class="table table-bordered" id="tabla-productos">
-                <thead>
+            <table class="table table-bordered table-hover" id="tabla-productos">
+                <thead class="table-dark">
                     <tr>
                         <th>Producto</th>
-                        <th width="150">Cantidad</th>
-                        <th width="50">Eliminar</th>
+                        <th width="120">Precio ($)</th> <th width="100">Cant.</th>
+                        <th width="120">Subtotal</th>   <th width="50"><i class="bi bi-trash"></i></th>
                     </tr>
                 </thead>
                 <tbody>
                     {{ formset_detalle.management_form }}
-
+                    
                     {% for form in formset_detalle %}
                         <tr class="producto-row">
-                            <td>{{ form.producto }}</td>
-                            <td>{{ form.cantidad }}</td>
+                            <td>
+                                {{ form.producto }}
+                                {% for error in form.producto.errors %}
+                                    <div class="text-danger small">{{ error }}</div>
+                                {% endfor %}
+                            </td>
+                            
+                            <td>
+                                <input type="number" step="0.01" class="form-control precio-input" 
+                                    name="{{ form.prefix }}-precio" 
+                                    id="id_{{ form.prefix }}-precio" 
+                                    placeholder="0.00">
+                            </td>
+
+                            <td>
+                                {{ form.cantidad }} 
+                            </td>
+
+                            <td>
+                                <input type="text" class="form-control subtotal-input" readonly value="0.00">
+                            </td>
+
                             <td class="text-center">
-                                {% if form.instance.pk %}
+                                <span class="d-none">
                                     {{ form.DELETE }}
-                                {% endif %}
+                                </span>
+
+                                <button type="button" class="btn btn-danger btn-sm btn-eliminar">
+                                    <i class="bi bi-trash"></i>
+                                </button>
                             </td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
 
+            <div class="row justify-content-end mt-3">
+                <div class="col-md-4">
+                    <div class="alert alert-primary text-end">
+                        <h3>Total: $<span id="gran-total">0.00</span></h3>
+                    </div>
+                </div>
+            </div>
+
             <button type="button" class="btn btn-secondary btn-sm mb-3" id="add-row">
                 <i class="bi bi-plus-circle"></i> Agregar otro producto
             </button>
 
             <div class="d-grid gap-2">
-                <button type="submit" class="btn btn-success btn-lg">Facturar y Guardar</button>
+                <button type="button" class="btn btn-success btn-lg" onclick="abrirModalPago()">
+                    Facturar y Guardar
+                </button>
             </div>
         </form>
     </div>
 </div>
 
+<div class="modal fade" id="modalPago" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title">💰 Finalizar Venta</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        
+        <h3>Total a Pagar</h3>
+        <h1 class="display-4 fw-bold text-success">$<span id="modal-total">0.00</span></h1>
+        
+        <hr>
+
+        <div class="mb-3 text-start">
+            <label class="form-label fw-bold">💳 Método de Pago:</label>
+            <select class="form-select form-select-lg mb-3" id="select-metodo-pago">
+                <option value="EFECTIVO" selected>💵 Efectivo</option>
+                <option value="DEBITO">💳 Débito</option>
+                <option value="CREDITO">💳 Crédito</option>
+                <option value="TRANSFERENCIA">🏦 Transferencia</option>
+                <option value="QR">📱 QR / Billetera Virtual</option>
+                <option value="OTRO">Otro</option>
+            </select>
+        </div>
+
+        <div class="mb-3 text-start">
+            <label class="form-label fw-bold">💵 Cliente Paga con:</label>
+            <input type="number" id="input-pago" class="form-control form-control-lg" placeholder="Ingrese monto...">
+        </div>
+
+        <div class="alert alert-secondary">
+            <h5>Vuelto / Cambio:</h5>
+            <h2 id="texto-vuelto" class="fw-bold">$0.00</h2>
+        </div>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success btn-lg w-100" id="btn-confirmar-venta">
+            ✅ Confirmar y Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
+    // 1. LOGICA DE AGREGAR FILA MANUALMENTE
     document.getElementById('add-row').addEventListener('click', function() {
         var table = document.getElementById('tabla-productos').getElementsByTagName('tbody')[0];
-        var totalForms = document.getElementById('id_detalles-TOTAL_FORMS'); // Input oculto de Django
+        var totalForms = document.querySelector('input[name$="-TOTAL_FORMS"]'); 
         var currentFormCount = parseInt(totalForms.value);
         
-        // Clonamos la primera fila (que suele estar oculta o ser la base)
         var newRow = table.rows[0].cloneNode(true);
-        
-        // Limpiamos los valores de los inputs clonados
+        newRow.style.display = ''; // Asegurar que sea visible
+        newRow.classList.remove('fila-eliminada'); // Limpiar estado de eliminado
+
         var inputs = newRow.getElementsByTagName('input');
         var selects = newRow.getElementsByTagName('select');
         
-        // Actualizamos los IDs y Nombres (Django necesita formato detalles-0-..., detalles-1-...)
         for (var i = 0; i < inputs.length; i++) {
             inputs[i].name = inputs[i].name.replace('-0-', '-' + currentFormCount + '-');
             inputs[i].id = inputs[i].id.replace('-0-', '-' + currentFormCount + '-');
-            inputs[i].value = ''; // Limpiar valor
+            inputs[i].value = ''; 
+            if(inputs[i].type === 'checkbox') inputs[i].checked = false;
         }
         for (var i = 0; i < selects.length; i++) {
             selects[i].name = selects[i].name.replace('-0-', '-' + currentFormCount + '-');
             selects[i].id = selects[i].id.replace('-0-', '-' + currentFormCount + '-');
+            selects[i].value = '';
         }
 
-        // Agregamos la fila y aumentamos el contador
         table.appendChild(newRow);
         totalForms.value = currentFormCount + 1;
+    });
+
+    // 2. LOGICA DEL ESCÁNER
+    document.getElementById('scanner_input').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            let codigo = this.value;
+            fetch("/ventas/api/buscar-producto/?codigo=" + codigo)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.encontrado) {
+                        agregarFilaAutomatica(data);
+                        this.value = '';
+                    } else {
+                        alert("Producto no encontrado ❌");
+                        this.select();
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        }
+    });
+
+    function agregarFilaAutomatica(producto) {
+        let totalFormsInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
+        if (!totalFormsInput) return; 
+
+        let prefix = totalFormsInput.name.replace('-TOTAL_FORMS', '');
+        let totalForms = parseInt(totalFormsInput.value);
+        
+        let indiceFila = -1;
+        
+        // Buscar hueco libre
+        for (let i = 0; i < totalForms; i++) {
+            let idSelect = `id_${prefix}-${i}-producto`;
+            let select = document.getElementById(idSelect);
+            let fila = select ? select.closest('tr') : null;
+
+            // Verificamos que la fila exista y NO esté eliminada
+            if (select && select.value === "" && fila && fila.style.display !== 'none') {
+                indiceFila = i;
+                break;
+            }
+        }
+
+        if (indiceFila === -1) {
+            document.getElementById('add-row').click();
+            indiceFila = totalForms; 
+        }
+
+        setTimeout(() => {
+            let idSelect = `id_${prefix}-${indiceFila}-producto`;
+            let idCantidad = `id_${prefix}-${indiceFila}-cantidad`;
+            let idPrecio = `id_${prefix}-${indiceFila}-precio`; 
+
+            let selectProducto = document.getElementById(idSelect);
+            if (selectProducto) {
+                selectProducto.value = producto.id;
+                selectProducto.dispatchEvent(new Event('change'));
+
+                let inputPrecio = document.getElementById(idPrecio);
+                if (inputPrecio) inputPrecio.value = producto.precio;
+
+                let inputCantidad = document.getElementById(idCantidad);
+                if(inputCantidad) inputCantidad.value = 1;
+
+                calcularGranTotal(); 
+            }
+        }, 100); 
+    }
+
+    // 3. LOGICA DE LA CALCULADORA
+    document.getElementById('tabla-productos').addEventListener('input', function(e) {
+        calcularGranTotal();
+    });
+
+    function calcularGranTotal() {
+        let totalGeneral = 0;
+        let filas = document.querySelectorAll('.producto-row');
+
+        filas.forEach((fila) => {
+            if (fila.style.display === 'none' || fila.classList.contains('fila-eliminada')) return;
+
+            let inputPrecio = fila.querySelector('.precio-input');
+            let inputCantidad = fila.querySelector('input[name*="cantidad"]');
+            let inputSubtotal = fila.querySelector('.subtotal-input');
+
+            if (inputPrecio && inputCantidad && inputSubtotal) {
+                let precio = parseFloat(inputPrecio.value) || 0;
+                let cantidad = parseFloat(inputCantidad.value) || 0;
+                let subtotal = precio * cantidad;
+                
+                inputSubtotal.value = subtotal.toFixed(2);
+                totalGeneral += subtotal;
+            }
+        });
+
+        let cartelTotal = document.getElementById('gran-total');
+        if(cartelTotal) cartelTotal.innerText = totalGeneral.toFixed(2);
+    }
+
+    // 4. AUTO-COMPLETAR AL SELECCIONAR MANUALMENTE
+    document.getElementById('tabla-productos').addEventListener('change', function(e) {
+        if (e.target.tagName === 'SELECT' && e.target.name.includes('producto')) {
+            let selectProducto = e.target;
+            let idProducto = selectProducto.value;
+            let fila = selectProducto.closest('tr');
+            let inputPrecio = fila.querySelector('.precio-input');
+            let inputCantidad = fila.querySelector('input[name*="cantidad"]');
+
+            if (idProducto) {
+                fetch("/ventas/api/buscar-producto/?id=" + idProducto)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.encontrado) {
+                            if (inputPrecio) inputPrecio.value = data.precio;
+                            if (inputCantidad && inputCantidad.value === "") inputCantidad.value = 1;
+                            calcularGranTotal();
+                        }
+                    });
+            } else {
+                if (inputPrecio) inputPrecio.value = '';
+                if (inputCantidad) inputCantidad.value = '';
+                calcularGranTotal();
+            }
+        }
+    });
+
+    // 5. LOGICA DE ELIMINAR FILAS
+    document.getElementById('tabla-productos').addEventListener('click', function(e) {
+        let btn = e.target.closest('.btn-eliminar');
+        if (btn) {
+            let row = btn.closest('tr');
+            let deleteCheckbox = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+            
+            if (deleteCheckbox) {
+                deleteCheckbox.checked = true;
+                row.style.display = 'none';
+                row.classList.add('fila-eliminada'); 
+            } else {
+                row.remove();
+                actualizarIndices(); 
+            }
+            calcularGranTotal();
+        }
+    });
+
+    function actualizarIndices() {
+        let filas = document.querySelectorAll('.producto-row');
+        let totalFormsInput = document.querySelector('input[name$="-TOTAL_FORMS"]');
+        let prefix = totalFormsInput.name.replace('-TOTAL_FORMS', '');
+        
+        filas.forEach((fila, index) => {
+            fila.querySelectorAll('input, select').forEach(input => {
+                if (input.name) input.name = input.name.replace(new RegExp(`${prefix}-\\d+-`), `${prefix}-${index}-`);
+                if (input.id) input.id = input.id.replace(new RegExp(`${prefix}-\\d+-`), `${prefix}-${index}-`);
+            });
+        });
+        totalFormsInput.value = filas.length;
+    }
+
+    // 6. LOGICA DEL MODAL DE PAGO
+    function abrirModalPago() {
+        let totalTexto = document.getElementById('gran-total').innerText;
+        let total = parseFloat(totalTexto);
+
+        if (total === 0) {
+            alert("⚠️ El total es $0. Agrega productos antes de facturar.");
+            return;
+        }
+
+        document.getElementById('modal-total').innerText = totalTexto;
+        document.getElementById('input-pago').value = ''; 
+        document.getElementById('texto-vuelto').innerText = "$0.00"; 
+        
+        var myModal = new bootstrap.Modal(document.getElementById('modalPago'));
+        myModal.show();
+
+        setTimeout(() => {
+            document.getElementById('input-pago').focus();
+        }, 500);
+    }
+
+    // Calculadora de vuelto
+    document.getElementById('input-pago').addEventListener('input', function() {
+        let total = parseFloat(document.getElementById('modal-total').innerText);
+        let pago = parseFloat(this.value);
+        let textoVuelto = document.getElementById('texto-vuelto');
+        let btnConfirmar = document.getElementById('btn-confirmar-venta');
+
+        if (isNaN(pago)) {
+            textoVuelto.innerText = "$0.00";
+            return;
+        }
+
+        let vuelto = pago - total;
+        if (vuelto < 0) {
+            textoVuelto.innerText = "Faltan: $" + Math.abs(vuelto).toFixed(2);
+            textoVuelto.className = "fw-bold text-danger";
+            btnConfirmar.disabled = true;
+        } else {
+            textoVuelto.innerText = "$" + vuelto.toFixed(2);
+            textoVuelto.className = "fw-bold text-success"; 
+            btnConfirmar.disabled = false; 
+        }
+    });
+
+    // BOTÓN CONFIRMAR DEL MODAL
+    document.getElementById('btn-confirmar-venta').addEventListener('click', function() {
+        // A. Copiar método de pago al input oculto
+        let selectPago = document.getElementById('select-metodo-pago');
+        let inputHidden = document.getElementById('input-hidden-pago');
+        
+        if (selectPago && inputHidden) {
+            inputHidden.value = selectPago.value;
+        }
+
+        // B. Enviar formulario
+        document.getElementById('form-venta').submit();
     });
 </script>
 {% endblock %}

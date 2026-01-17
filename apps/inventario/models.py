@@ -13,7 +13,13 @@ class Categoria(models.Model):
 
 class Producto(models.Model):
     nombre = models.CharField(max_length=200)
-    codigo = models.CharField(max_length=50, unique=True, help_text="Código de barras o interno")
+    
+    # 1. CODIGO INTERNO (SKU): Corto, para que vos lo escribas rápido si falla el escáner
+    codigo = models.CharField(max_length=50, unique=True, help_text="Código interno (Ej: MAT-001)")
+    
+    # 2. CODIGO DE BARRAS (EAN): El que lee la pistola. Puede estar vacío (blank=True)
+    codigo_barra = models.CharField(max_length=50, null=True, blank=True, unique=True, help_text="Escanee el código aquí")
+
     categoria = models.ForeignKey(Categoria, on_delete=models.CASCADE)
     
     # Dinero

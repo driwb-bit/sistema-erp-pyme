@@ -4,10 +4,24 @@ from django.core.exceptions import ValidationError
 from inventario.models import Producto, MovimientoStock # Importamos la otra app
 
 class Venta(models.Model):
+    METODOS_PAGO = [
+        ('EFECTIVO', 'Efectivo'),
+        ('TRANSFERENCIA', 'Transferencia'),
+        ('DEBITO', 'Tarjeta de Débito'),
+        ('CREDITO', 'Tarjeta de Crédito'),
+        ('QR', 'QR / Billetera Virtual'),
+        ('OTRO', 'Otro'),
+    ]
+
     fecha = models.DateTimeField(auto_now_add=True)
     usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     cliente = models.CharField(max_length=100, default="Consumidor Final")
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    metodo_pago = models.CharField(
+        max_length=20, 
+        choices=METODOS_PAGO, 
+        default='EFECTIVO'
+    )
 
     def __str__(self):
         return f"Venta #{self.pk} - {self.fecha.strftime('%d/%m/%Y')}"

@@ -2,12 +2,13 @@ from django.contrib import admin
 from .models import Categoria, Producto, MovimientoStock
 
 class ProductoAdmin(admin.ModelAdmin):
-    list_display = ('nombre', 'codigo', 'categoria', 'precio', 'stock_actual', 'stock_minimo')
+    list_display = ('nombre', 'codigo', 'categoria','codigo_barra', 'precio', 'stock_actual', 'stock_minimo')
     list_filter = ('categoria',) # Filtro lateral
-    search_fields = ('nombre', 'codigo') # Barra de búsqueda
+    search_fields = ('nombre', 'codigo', 'codigo_barra') # Barra de búsqueda
     # Hacemos que stock_actual sea solo lectura para obligar a usar "Movimientos"
     readonly_fields = ('stock_actual',) 
     search_help_text = "Busca por nombre o código"
+    fields = ('codigo', 'nombre', 'categoria', 'precio', 'costo', 'stock_actual', 'stock_minimo', 'codigo_barra')
 
 class MovimientoStockAdmin(admin.ModelAdmin):
     list_display = ('fecha', 'producto', 'tipo', 'cantidad', 'usuario')
