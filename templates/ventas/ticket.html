@@ -6,33 +6,29 @@
     <style>
         /* --- ESTILOS PARA IMPRESORA TÉRMICA --- */
         body {
-            font-family: 'Courier New', Courier, monospace; /* Letra fija para alinear bien */
-            font-size: 14px; /* Tamaño legible */
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
             margin: 0;
             padding: 5px;
-            width: 80mm; /* Ancho estándar de ticket (ajustar a 58mm si es chica) */
+            width: 80mm;
             color: #000;
             background-color: #fff;
         }
 
-        /* Utilidades de alineación */
         .centrado { text-align: center; }
         .derecha { text-align: right; }
         .izquierda { text-align: left; }
         .negrita { font-weight: bold; }
 
-        /* Líneas separadoras punteadas */
         .linea { 
             border-top: 1px dashed #000; 
             margin: 8px 0; 
         }
 
-        /* Tabla de productos compacta */
         table { width: 100%; border-collapse: collapse; margin-top: 5px; }
         td, th { padding: 2px 0; vertical-align: top; }
         th { border-bottom: 1px solid #000; }
 
-        /* Título de la empresa grande */
         .nombre-empresa {
             font-size: 18px;
             font-weight: bold;
@@ -43,18 +39,18 @@
         /* --- ESTILOS PARA PANTALLA (NO SALEN EN EL PAPEL) --- */
         @media print {
             .no-imprimir { display: none !important; }
-            @page { margin: 0; } /* Quita los encabezados del navegador */
+            @page { margin: 0; }
         }
 
-        /* --- ESTILOS MEJORADOS PARA LA BOTONERA (SOLO PANTALLA) --- */
+        /* BOTONERA */
         .botonera {
-            background-color: #f8f9fa; /* Gris clarito suave */
+            background-color: #f8f9fa;
             padding: 15px;
             border-bottom: 2px solid #ddd;
-            text-align: center; /* Centrar todo */
-            display: flex;       /* Usar Flexbox para alinear */
+            text-align: center;
+            display: flex;
             justify-content: center;
-            gap: 10px;           /* Espacio entre botones */
+            gap: 10px;
             margin-bottom: 20px;
         }
 
@@ -71,20 +67,16 @@
             transition: background 0.3s;
         }
 
-        /* Colores específicos */
-        .btn-imprimir { background-color: #6c757d; } /* Gris */
-        .btn-verde { background-color: #28a745; }    /* Verde */
-        .btn-azul { background-color: #007bff; }     /* Azul */
-
-        .btn:hover { opacity: 0.9; } /* Efecto al pasar el mouse */
-        .btn-verde { background: #28a745; }
-        .btn-azul { background: #007bff; }
+        .btn-imprimir { background-color: #6c757d; }
+        .btn-verde { background-color: #28a745; }
+        .btn-azul { background-color: #007bff; }
+        .btn:hover { opacity: 0.9; }
     </style>
 </head>
-<body onload="window.print()"> <div class="botonera no-imprimir">
-    <button onclick="window.print()" class="btn btn-imprimir">🖨️ Imprimir</button>
-    <a href="{% url 'crear_venta' %}" class="btn btn-verde">➕ Nueva Venta</a>
-    <a href="{% url 'home' %}" class="btn btn-azul">🏠 Inicio</a>
+<body> <div class="botonera no-imprimir">
+        <button onclick="window.print()" class="btn btn-imprimir">🖨️ Imprimir</button>
+        <a href="{% url 'crear_venta' %}" class="btn btn-verde">➕ Nueva Venta (Enter)</a>
+        <a href="{% url 'home' %}" class="btn btn-azul">🏠 Inicio</a>
     </div>
 
     <div class="centrado">
@@ -170,6 +162,21 @@
         <br><br>
         <small>.:: Sistema AppPyme ::.</small>
     </div>
+
+    <script>
+        // 1. Apenas carga la página, abre el cuadro de imprimir
+        window.onload = function() {
+            window.print();
+        };
+
+        // 2. Escucha si aprietan ENTER para volver a vender rápido
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                // Redirige a la pantalla de Nueva Venta
+                window.location.href = "{% url 'crear_venta' %}";
+            }
+        });
+    </script>
 
 </body>
 </html>

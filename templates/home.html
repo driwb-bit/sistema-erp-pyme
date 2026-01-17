@@ -1,45 +1,152 @@
 {% extends 'base.html' %}
 
 {% block contenido %}
-<div class="row">
-    <div class="col-md-12 text-center mb-5">
-        <h1 class="display-4">Bienvenido, {{ user.username }}</h1>
-        <p class="lead">Panel de Control General</p>
+<div class="container-fluid">
+    
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            Hola, <span class="text-primary fw-bold">{{ user.username|title }}</span> 👋
+        </h1>
+        <span class="d-none d-sm-inline-block btn btn-sm btn-light shadow-sm">
+            <i class="bi bi-calendar-date"></i> {% now "d \d\e F \d\e Y" %}
+        </span>
+    </div>
+
+    <div class="row">
+
+        {% if user.is_staff %}
+        <div class="col-xl-3 col-md-6 mb-4">
+            <div class="card border-left-primary shadow h-100 py-2">
+                <div class="card-body">
+                    <div class="row no-gutters align-items-center">
+                        <div class="col mr-2">
+                            <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                                Ventas de Hoy</div>
+                            <div class="h3 mb-0 font-weight-bold text-gray-800">
+                                ${{ total_ventas_hoy|default:"0.00" }}
+                            </div>
+                            <small class="text-muted">{{ cantidad_ventas_hoy }} operaciones</small>
+                        </div>
+                        <div class="col-auto">
+                            <i class="bi bi-currency-dollar display-4 text-gray-300"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <a href="{% url 'crear_venta' %}" class="text-decoration-none">
+                <div class="card border-left-success shadow h-100 py-2 transform-hover bg-success text-white">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="font-weight-bold text-uppercase mb-1 text-white">
+                                    Punto de Venta</div>
+                                <div class="h5 mb-0 font-weight-bold">Nueva Venta</div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-cart-plus-fill display-4 text-white"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-4">
+            <a href="{% url 'gestionar_caja' %}" class="text-decoration-none">
+                <div class="card border-left-warning shadow h-100 py-2 transform-hover">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">
+                                    Finanzas</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                    Cierre de Caja
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-cash-stack display-4 text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+
+        {% if user.is_staff %}
+        <div class="col-xl-3 col-md-6 mb-4">
+            <a href="/admin/" class="text-decoration-none">
+                <div class="card border-left-dark shadow h-100 py-2 transform-hover">
+                    <div class="card-body">
+                        <div class="row no-gutters align-items-center">
+                            <div class="col mr-2">
+                                <div class="text-xs font-weight-bold text-dark text-uppercase mb-1">
+                                    Sistema</div>
+                                <div class="h5 mb-0 font-weight-bold text-gray-800">
+                                    Administración
+                                </div>
+                            </div>
+                            <div class="col-auto">
+                                <i class="bi bi-gear-fill display-4 text-gray-300"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="row">
+        <div class="col-lg-12 mb-4">
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 bg-white border-bottom-danger">
+                    <h6 class="m-0 font-weight-bold text-danger">
+                        <i class="bi bi-exclamation-triangle"></i> Alertas de Inventario
+                    </h6>
+                </div>
+                <div class="card-body">
+                    {% if productos_bajo_stock %}
+                        <div class="table-responsive">
+                            <table class="table table-bordered table-sm">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th>Stock Mínimo</th>
+                                        <th>Stock Actual</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for prod in productos_bajo_stock %}
+                                    <tr>
+                                        <td>{{ prod.nombre }}</td>
+                                        <td>{{ prod.stock_minimo }}</td>
+                                        <td class="fw-bold text-danger">{{ prod.stock_actual }}</td>
+                                        <td><span class="badge bg-danger">Crítico</span></td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-success mb-0"><i class="bi bi-check-circle"></i> Stock en orden.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
-<div class="row g-4">
-    <div class="col-md-4">
-        <div class="card h-100 border-primary">
-            <div class="card-body text-center">
-                <h1 class="text-primary"><i class="bi bi-cart-plus"></i></h1>
-                <h5 class="card-title">Punto de Venta</h5>
-                <p class="card-text">Registrar una nueva venta y facturar.</p>
-                <a href="{% url 'crear_venta' %}" class="btn btn-primary w-100">Nueva Venta</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4">
-        <div class="card h-100 border-success">
-            <div class="card-body text-center">
-                <h1 class="text-success"><i class="bi bi-boxes"></i></h1>
-                <h5 class="card-title">Inventario</h5>
-                <p class="card-text">Ver stock actual y productos.</p>
-                <a href="{% url 'lista_productos' %}" class="btn btn-primary w-100">Ver Stock</a>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-4">
-        <div class="card h-100 border-warning">
-            <div class="card-body text-center">
-                <h1 class="text-warning"><i class="bi bi-cash-coin"></i></h1>
-                <h5 class="card-title">Caja</h5>
-                <p class="card-text">Realizar cierre de caja o ver movimientos.</p>
-                <a href="{% url 'gestionar_caja' %}" class="btn btn-primary w-100">Gestionar Caja</a>
-            </div>
-        </div>
-    </div>
-</div>
+<style>
+    .border-left-primary { border-left: 5px solid #4e73df; }
+    .border-left-success { border-left: 5px solid #1cc88a; }
+    .border-left-warning { border-left: 5px solid #f6c23e; }
+    .border-left-dark { border-left: 5px solid #5a5c69; }
+    .transform-hover:hover { transform: translateY(-5px); transition: 0.3s; cursor: pointer; }
+    .text-gray-300 { color: #dddfeb; }
+</style>
 {% endblock %}

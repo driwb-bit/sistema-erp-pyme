@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block contenido %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5 col-lg-4">
+        <div class="card shadow-lg border-0 rounded-lg">
+            <div class="card-header bg-primary text-white text-center py-4">
+                <h3 class="font-weight-light my-1">👋 Bienvenido</h3>
+                <small>Ingresa tus credenciales</small>
+            </div>
+            <div class="card-body p-4">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    {% if form.errors %}
+                        <div class="alert alert-danger text-center mb-3">
+                            <i class="bi bi-exclamation-circle"></i> Usuario o contraseña incorrectos.
+                        </div>
+                    {% endif %}
+
+                    <div class="form-floating mb-3">
+                        <label for="id_username" class="form-label text-muted">Usuario</label>
+                        <input type="text" name="username" class="form-control form-control-lg" id="id_username" placeholder="Tu usuario" required autofocus>
+                    </div>
+                    
+                    <div class="form-floating mb-3">
+                        <label for="id_password" class="form-label text-muted">Contraseña</label>
+                        <input type="password" name="password" class="form-control form-control-lg" id="id_password" placeholder="Tu contraseña" required>
+                    </div>
+
+                    <div class="d-grid gap-2 mt-4">
+                        <button class="btn btn-primary btn-lg" type="submit">INGRESAR</button>
+                    </div>
+                </form>
+            </div>
+            <div class="card-footer text-center py-3">
+                <small class="text-muted">Si olvidaste tu clave, pedile al Jefe que la reinicie.</small>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

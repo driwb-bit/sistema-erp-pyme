@@ -1,6 +1,6 @@
 from django import forms
 from django.forms import inlineformset_factory
-from .models import Venta, DetalleVenta
+from .models import Venta, DetalleVenta, Gasto
 
 class VentaForm(forms.ModelForm):
     class Meta:
@@ -27,3 +27,13 @@ DetalleVentaFormSet = inlineformset_factory(
     extra=1,       # Muestra 1 fila vacía por defecto
     can_delete=True # Permite borrar filas
 )
+
+# --- AGREGAR ESTO PARA LOS GASTOS ---
+class GastoForm(forms.ModelForm):
+    class Meta:
+        model = Gasto
+        fields = ['descripcion', 'monto']
+        widgets = {
+            'descripcion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Pago Sodero'}),
+            'monto': forms.NumberInput(attrs={'class': 'form-control', 'placeholder': '0.00'}),
+        }

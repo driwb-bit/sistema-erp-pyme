@@ -14,13 +14,23 @@ sys.path.insert(0, os.path.join(BASE_DIR, 'apps'))
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
+# --- CONFIGURACIÓN DE LOGIN ---
+# A dónde ir después de iniciar sesión correctamente
+LOGIN_REDIRECT_URL = '/'
+
+# A dónde ir después de cerrar sesión
+LOGOUT_REDIRECT_URL = '/accounts/login/'
+
+# URL de la página de login (por si intentan entrar sin permiso)
+LOGIN_URL = '/accounts/login/'
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [*]
 
 
 # Application definition
@@ -102,9 +112,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'es-ar'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Argentina/Buenos_Aires'
 
 USE_I18N = True
 

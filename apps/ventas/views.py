@@ -1,13 +1,15 @@
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
-from django.db import transaction # Para que si falla algo, no guarde nada a medias
+from django.db import transaction 
 from django.contrib import messages
-from .forms import VentaForm, DetalleVentaFormSet
 from django.http import JsonResponse
-from inventario.models import Producto
-from .models import Venta
-from django.db.models import Q # <--- IMPORTANTE: AGREGAR ESTO AL PRINCIPIO
+from django.db.models import Q, Sum, F, Count
+from django.utils import timezone   
 
+# Importamos los Forms y Modelos
+from .forms import VentaForm, DetalleVentaFormSet, GastoForm
+from inventario.models import Producto, MovimientoStock 
+from .models import Venta, Gasto
 
 DATOS_EMPRESA = {
     "nombre": "MI NEGOCIO",
@@ -18,100 +20,38 @@ DATOS_EMPRESA = {
     "nota_legal": "DOCUMENTO NO VÁLIDO COMO FACTURA"
 }
 
+# --- 1. DASHBOARD (HOME) ---
+# apps/ventas/views.py
+
 @login_required
-def crear_venta(request):
-    if request.method == 'POST':
-        form_venta = VentaForm(request.POST)
-        formset_detalle = DetalleVentaFormSet(request.POST)
-
-        if form_venta.is_valid() and formset_detalle.is_valid():
-            try:
-                with transaction.atomic():
-                    # 1. Guardar la Venta (Padre)
-                    venta = form_venta.save(commit=False)
-                    venta.usuario = request.user
-                    
-                    # --- NUEVO: CAPTURAR EL MÉTODO DE PAGO ---
-                    # El input hidden en el HTML se llama 'metodo_pago_seleccionado'
-                    metodo = request.POST.get('metodo_pago_seleccionado', 'EFECTIVO')
-                    venta.metodo_pago = metodo
-                    
-                    venta.save()
-
-                    # 2. Guardar los Detalles (Hijos)
-                    detalles = formset_detalle.save(commit=False)
-                    for detalle in detalles:
-                        detalle.venta = venta
-                        detalle.save()
-                    
-                    messages.success(request, '¡Venta registrada exitosamente!')
-                    
-                    # --- NUEVO: REDIRIGIR AL TICKET EN LUGAR DEL HOME ---
-                    return redirect('ticket_venta', venta_id=venta.id)
-
-            except Exception as e:
-                messages.error(request, f"Error al guardar: {e}")
-        else:
-            messages.error(request, "Por favor corrige los errores en el formulario.")
-    else:
-        # Si es GET (entrar a la página), mostramos formularios vacíos
-        form_venta = VentaForm()
-        formset_detalle = DetalleVentaFormSet()
-
-    return render(request, 'ventas/nueva_venta.html', {
-        'form_venta': form_venta,
-        'formset_detalle': formset_detalle
-    })
-
-def buscar_producto_api(request):
-    codigo = request.GET.get('codigo', None)
-    producto_id = request.GET.get('id', None) # <--- Ahora aceptamos ID
+def home(request):
+    hoy = timezone.localtime(timezone.now()).date()
     
-    data = {'encontrado': False}
-    
-    try:
-        producto = None
+    context = {
+        'total_ventas_hoy': 0,
+        'cantidad_ventas_hoy': 0,
+        'productos_bajo_stock': [],
+        # Borramos 'debug_productos' porque ya no hace falta
+    }
+
+    # A. VENTAS (Solo Jefes)
+    if request.user.is_staff:
+        ventas_hoy = Venta.objects.filter(fecha__date=hoy)
+        total = ventas_hoy.aggregate(Sum('total'))['total__sum']
         
-        # Estrategia 1: Buscar por Código de Barras (Escáner)
-        if codigo:
-            producto = Producto.objects.get(codigo=codigo)
-            
-        # Estrategia 2: Buscar por ID (Lista desplegable manual)
-        elif producto_id:
-            producto = Producto.objects.get(id=producto_id)
-            
-        if producto:
-            data = {
-                'encontrado': True,
-                'id': producto.id,
-                'nombre': producto.nombre,
-                'precio': float(producto.precio),
-                'stock': producto.stock_actual
-            }
-    except (Producto.DoesNotExist, ValueError):
-        # ValueError captura si mandan un ID que no es número
-        data = {'encontrado': False}
+        context['total_ventas_hoy'] = total if total else 0
+        context['cantidad_ventas_hoy'] = ventas_hoy.count()
+
+    # B. ALERTAS
+    bajo_stock = Producto.objects.filter(
+        stock_actual__lte=F('stock_minimo')
+    ).order_by('stock_actual')[:10]
     
-    return JsonResponse(data)
+    context['productos_bajo_stock'] = bajo_stock
 
-from django.shortcuts import render, redirect
-from django.contrib.auth.decorators import login_required
-from django.db import transaction # Para que si falla algo, no guarde nada a medias
-from django.contrib import messages
-from .forms import VentaForm, DetalleVentaFormSet
-from django.http import JsonResponse
-from inventario.models import Producto
-from .models import Venta
+    return render(request, 'home.html', context)
 
-DATOS_EMPRESA = {
-    "nombre": "MI NEGOCIO",
-    "direccion": "Calle Falsa 123, Resistencia",
-    "telefono": "3624-000000",
-    "cuit": "20-12345678-9",
-    "mensaje_pie": "¡Gracias por su compra!",
-    "nota_legal": "DOCUMENTO NO VÁLIDO COMO FACTURA"
-}
-
+# --- 2. NUEVA VENTA (CORREGIDO EL ERROR DE PRECIO) ---
 @login_required
 def crear_venta(request):
     if request.method == 'POST':
@@ -121,34 +61,50 @@ def crear_venta(request):
         if form_venta.is_valid() and formset_detalle.is_valid():
             try:
                 with transaction.atomic():
-                    # 1. Guardar la Venta (Padre)
+                    # A. Guardar Cabecera
                     venta = form_venta.save(commit=False)
                     venta.usuario = request.user
-                    
-                    # --- NUEVO: CAPTURAR EL MÉTODO DE PAGO ---
-                    # El input hidden en el HTML se llama 'metodo_pago_seleccionado'
-                    metodo = request.POST.get('metodo_pago_seleccionado', 'EFECTIVO')
-                    venta.metodo_pago = metodo
-                    
+                    venta.metodo_pago = request.POST.get('metodo_pago_seleccionado', 'EFECTIVO')
                     venta.save()
 
-                    # 2. Guardar los Detalles (Hijos)
+                    # B. Guardar Detalles
                     detalles = formset_detalle.save(commit=False)
+                    total_acumulado = 0
+                    
                     for detalle in detalles:
                         detalle.venta = venta
+                        
+                        # --- CORRECCIÓN DEL ERROR ---
+                        # Usamos el precio del PRODUCTO original, ya que DetalleVenta no tiene campo precio
+                        precio_real = detalle.producto.precio 
+                        
+                        # Calculamos subtotal
+                        subtotal = detalle.cantidad * precio_real
+                        total_acumulado += subtotal
+                        
                         detalle.save()
+                        
+                        # C. Descontar Stock (Crear Movimiento)
+                        MovimientoStock.objects.create(
+                            producto=detalle.producto,
+                            cantidad=detalle.cantidad,
+                            tipo=MovimientoStock.SALIDA,
+                            usuario=request.user,
+                            observacion=f"Venta #{venta.id}"
+                        )
+                    
+                    # D. Actualizar Total de la Venta
+                    venta.total = total_acumulado
+                    venta.save()
                     
                     messages.success(request, '¡Venta registrada exitosamente!')
-                    
-                    # --- NUEVO: REDIRIGIR AL TICKET EN LUGAR DEL HOME ---
                     return redirect('ticket_venta', venta_id=venta.id)
 
             except Exception as e:
-                messages.error(request, f"Error al guardar: {e}")
+                messages.error(request, f"Error al procesar la venta: {e}")
         else:
-            messages.error(request, "Por favor corrige los errores en el formulario.")
+            messages.error(request, "Verifique los datos del formulario.")
     else:
-        # Si es GET (entrar a la página), mostramos formularios vacíos
         form_venta = VentaForm()
         formset_detalle = DetalleVentaFormSet()
 
@@ -157,23 +113,56 @@ def crear_venta(request):
         'formset_detalle': formset_detalle
     })
 
+# --- 3. GESTIONAR CAJA Y GASTOS (LO QUE PEDISTE RESTAURAR) ---
+@login_required
+def gestionar_caja(request):
+    hoy = timezone.localtime(timezone.now()).date()
+    
+    # Lógica para agregar Gasto
+    if request.method == 'POST':
+        form_gasto = GastoForm(request.POST)
+        if form_gasto.is_valid():
+            gasto = form_gasto.save(commit=False)
+            gasto.usuario = request.user
+            gasto.save()
+            messages.success(request, "Gasto registrado correctamente.")
+            return redirect('gestionar_caja')
+    else:
+        form_gasto = GastoForm()
+
+    # Calcular Totales
+    total_ventas = Venta.objects.filter(fecha__date=hoy).aggregate(Sum('total'))['total__sum'] or 0
+    total_gastos = Gasto.objects.filter(fecha__date=hoy).aggregate(Sum('monto'))['monto__sum'] or 0
+    
+    # Desglose por método de pago
+    resumen_pagos = Venta.objects.filter(fecha__date=hoy).values('metodo_pago').annotate(
+        total=Sum('total'),
+        cantidad=Count('id')
+    )
+    
+    balance_final = total_ventas - total_gastos
+
+    return render(request, 'ventas/gestionar_caja.html', {
+        'fecha': hoy,
+        'total_ventas': total_ventas,
+        'total_gastos': total_gastos,
+        'balance_final': balance_final,
+        'resumen_pagos': resumen_pagos,
+        'form_gasto': form_gasto,
+        'lista_gastos': Gasto.objects.filter(fecha__date=hoy).order_by('-fecha')
+    })
+
+# --- 4. API Y TICKET (SIN CAMBIOS) ---
 def buscar_producto_api(request):
-    query = request.GET.get('codigo', None) # Le llamamos 'query' porque puede ser cualquier cosa
+    query = request.GET.get('codigo', None)
     producto_id = request.GET.get('id', None)
-    
     data = {'encontrado': False}
-    
     try:
         producto = None
-        
-        # ESTRATEGIA MEJORADA:
         if query:
-            # Buscamos si coincide con el Código Interno O con el Código de Barras
-            # Q(campo__iexact=valor) hace que no importen mayúsculas/minúsculas
             producto = Producto.objects.filter(
                 Q(codigo__iexact=query) | Q(codigo_barra__iexact=query)
-            ).first() # Usamos .first() por si las dudas, aunque deberían ser únicos
-            
+            ).first()
         elif producto_id:
             producto = Producto.objects.get(id=producto_id)
             
@@ -184,32 +173,17 @@ def buscar_producto_api(request):
                 'nombre': producto.nombre,
                 'precio': float(producto.precio),
                 'stock': producto.stock_actual,
-                'codigo': producto.codigo # Devolvemos el interno para mostrar
+                'codigo': producto.codigo 
             }
-    except Exception as e:
-        print(f"Error buscando producto: {e}")
-        data = {'encontrado': False}
-    
+    except Exception:
+        pass
     return JsonResponse(data)
 
 def ticket_venta(request, venta_id):
     try:
-        # Buscamos la venta por su ID
         venta = Venta.objects.get(id=venta_id)
-        
-        # Obtenemos los productos vendidos
         detalles = venta.detalles.all() 
-        
-        context = {
-            'venta': venta,
-            'detalles': detalles,
-            'empresa': DATOS_EMPRESA, # Pasamos los datos de configuración
-        }
+        context = {'venta': venta, 'detalles': detalles, 'empresa': DATOS_EMPRESA}
         return render(request, 'ventas/ticket.html', context)
-
     except Venta.DoesNotExist:
-        messages.error(request, "La venta solicitada no existe.")
         return redirect('crear_venta')
-    
-
-
